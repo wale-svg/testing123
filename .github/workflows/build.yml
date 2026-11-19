@@ -22,7 +22,8 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-latest
+    # Preview runner image that ships Xcode 27 (needed for the newer MetalFX SDK).
+    runs-on: xcode-27
     timeout-minutes: 360
 
     steps:
@@ -489,22 +490,32 @@ jobs:
           echo "Installed Xcodes:"
           ls -d /Applications/Xcode*.app || true
 
-          TARGET=""
-          for c in /Applications/Xcode_27.2.app /Applications/Xcode-27.2.app; do
-            if [[ -d "$c" ]]; then TARGET="$c"; break; fi
-          done
+          EXACT=0
+          if [[ -d /Applications/Xcode_27.2.app ]]; then
+            TARGET="/Applications/Xcode_27.2.app"
+            EXACT=1
+          else
+            TARGET="$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -n 1 || true)"
+          fi
 
-          if [[ -n "$TARGET" ]]; then
-            echo "Using $TARGET"
-            sudo xcode-select -s "$TARGET/Contents/Developer"
-            xcodebuild -downloadComponent MetalToolchain \
-              || echo "::warning::Metal toolchain download failed"
+          if [[ -z "$TARGET" ]]; then
+            echo "::error::No Xcode 27 on this runner. This project needs the Xcode 27 SDK (newer MetalFX APIs)."
+            exit 1
+          fi
+
+          echo "Using $TARGET"
+          sudo xcode-select -s "$TARGET/Contents/Developer"
+          xcodebuild -downloadComponent MetalToolchain \
+            || echo "::warning::Metal toolchain download failed"
+
+          if [[ "$EXACT" == "1" ]]; then
             echo "METAL_FLAG=" >> "$GITHUB_ENV"
           else
-            echo "::warning::Xcode 27.2 not on this runner; building with --allow-other-metal (untested compiler)."
+            echo "::warning::Not Xcode 27.2; building with --allow-other-metal (untested compiler)."
             echo "METAL_FLAG=--allow-other-metal" >> "$GITHUB_ENV"
           fi
 
+          xcodebuild -version
           xcrun -sdk iphoneos metal --version || true
 
       - name: Build unsigned IPA
