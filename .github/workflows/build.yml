@@ -63,7 +63,17 @@ jobs:
           brew install xcodegen zstd spirv-cross unar
           python -m pip install --upgrade pip
           python -m pip install \
-            lz4 capstone fonttools backports.zstd gdown
+            lz4 "capstone>=5,<6" fonttools zbic backports.zstd gdown
+
+      # Cached game files (base game / update / DLC). Change "v1" to "v2" in
+      # both cache steps' key to force a fresh download (e.g. new update).
+      - name: Restore cached game files
+        id: game_cache
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/game-cache
+          key: game-files-v1
 
       - name: Download game files and keys
         env:
@@ -132,22 +142,53 @@ jobs:
             file "$output"
           }
 
-          download_file "$GAME_URL" "$WORK/game.download"
+          CACHE="$RUNNER_TEMP/game-cache"
+          mkdir -p "$CACHE"
+
+          # Uses the cached copy if there is one; otherwise downloads it and
+          # stores it in the cache folder. Hard links avoid duplicating
+          # multi-GB files on the runner's limited disk.
+          fetch_cached() {
+            local label="$1"
+            local url="$2"
+
+            if [[ -s "$CACHE/$label.download" ]]; then
+              echo "Using cached $label file (no download)."
+              ln -f "$CACHE/$label.download" "$WORK/$label.download" \
+                || cp "$CACHE/$label.download" "$WORK/$label.download"
+            else
+              download_file "$url" "$WORK/$label.download"
+              ln -f "$WORK/$label.download" "$CACHE/$label.download" \
+                || cp "$WORK/$label.download" "$CACHE/$label.download"
+            fi
+          }
+
+          # Keys are small, so they are always downloaded fresh and never cached.
           download_file "$KEYS_URL" "$WORK/prod.keys"
 
+          fetch_cached game "$GAME_URL"
+
           if [[ -n "${UPDATE_URL:-}" ]]; then
-            download_file "$UPDATE_URL" "$WORK/update.download"
+            fetch_cached update "$UPDATE_URL"
           else
             echo "No UPDATE_URL configured; continuing without an update."
           fi
 
           if [[ -n "${DLC_URL:-}" ]]; then
-            download_file "$DLC_URL" "$WORK/dlc.download"
+            fetch_cached dlc "$DLC_URL"
           else
             echo "No DLC_URL configured; continuing without DLC."
           fi
 
           chmod 600 "$WORK/prod.keys"
+
+      - name: Save game files to cache
+        if: steps.game_cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/game-cache
+          key: game-files-v1
 
       - name: Extract RAR archives or accept direct game packages
         shell: bash
@@ -488,4 +529,5 @@ jobs:
         run: |
           rm -rf \
             "$RUNNER_TEMP/nxnative" \
-            "$RUNNER_TEMP/GameFiles"
+            "$RUNNER_TEMP/GameFiles" \
+            "$RUNNER_TEMP/game-cache"
