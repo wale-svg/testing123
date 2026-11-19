@@ -435,7 +435,10 @@ jobs:
             exit 1
           fi
 
-          python "$CHAIN_SCRIPT" --update-lock
+          echo "Using: $CHAIN_SCRIPT"
+
+          # This fork's dmsh_chain.py has no --update-lock (the lock file is
+          # tool_lock.py's job); only --header exists.
           python "$CHAIN_SCRIPT" --header
 
       - name: Build unsigned IPA
