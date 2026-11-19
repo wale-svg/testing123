@@ -47,6 +47,23 @@ jobs:
         run: |
           echo "Building from commit: $(git rev-parse HEAD)"
 
+      - name: Free up disk space on the runner
+        shell: bash
+        run: |
+          echo "Before cleanup:"
+          df -h /
+
+          # Old Xcode versions we don't use (the Xcode 27 one stays).
+          sudo rm -rf /Applications/Xcode_26*.app /Applications/Xcode_16*.app /Applications/Xcode_15*.app 2>/dev/null || true
+
+          # Simulators and Android tooling (not needed for an unsigned device build).
+          xcrun simctl delete all 2>/dev/null || true
+          xcrun simctl runtime delete all 2>/dev/null || true
+          rm -rf "$HOME/Library/Android" 2>/dev/null || true
+
+          echo "After cleanup:"
+          df -h /
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -344,6 +361,19 @@ jobs:
           PY
 
           test -s "$WORK/prod.keys"
+
+      - name: Free disk space used by raw downloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/nxnative"
+
+          # The packages were copied into GameFiles; the raw downloads and the
+          # cache folder (already saved above) are no longer needed this run.
+          rm -f "$WORK"/*.download
+          rm -rf "$WORK"/extracted-*
+          rm -rf "$RUNNER_TEMP/game-cache"
+          df -h /
 
       - name: Detect game title ID and select shader profile
         env:
