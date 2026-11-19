@@ -482,6 +482,31 @@ jobs:
           # tool_lock.py's job); only --header exists.
           python "$CHAIN_SCRIPT" --header
 
+      - name: Select Metal-compatible Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Installed Xcodes:"
+          ls -d /Applications/Xcode*.app || true
+
+          TARGET=""
+          for c in /Applications/Xcode_27.2.app /Applications/Xcode-27.2.app; do
+            if [[ -d "$c" ]]; then TARGET="$c"; break; fi
+          done
+
+          if [[ -n "$TARGET" ]]; then
+            echo "Using $TARGET"
+            sudo xcode-select -s "$TARGET/Contents/Developer"
+            xcodebuild -downloadComponent MetalToolchain \
+              || echo "::warning::Metal toolchain download failed"
+            echo "METAL_FLAG=" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Xcode 27.2 not on this runner; building with --allow-other-metal (untested compiler)."
+            echo "METAL_FLAG=--allow-other-metal" >> "$GITHUB_ENV"
+          fi
+
+          xcrun -sdk iphoneos metal --version || true
+
       - name: Build unsigned IPA
         shell: bash
         run: |
@@ -493,7 +518,8 @@ jobs:
           python scripts/build_ipa_from_nsp.py \
             "$GAME_DIR" \
             -k "$WORK/prod.keys" \
-            -o "$OUTPUT"
+            -o "$OUTPUT" \
+            ${METAL_FLAG:-}
 
           if [[ ! -s "$OUTPUT" ]]; then
             echo "::error::IPA build did not produce an output file."
