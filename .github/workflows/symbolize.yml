@@ -1,0 +1,49 @@
+name: symbolize-crash
+on: [push, workflow_dispatch]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  sym:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the fork (for its tools)
+        uses: actions/checkout@v4
+        with:
+          repository: wale-svg/nxnative-wale
+          ref: no-bc
+          path: nx
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install capstone lz4 zstandard
+
+      - name: Get the build's logs and survey
+        uses: actions/download-artifact@v4
+        with:
+          name: NxNative-Build-Logs
+          run-id: 44481608542
+          github-token: ${{ github.token }}
+          path: logs
+
+      - name: Find tools
+        run: |
+          find logs -type f -name sdk
+          find nx -name sdis.py
+          grep -n "sdis.py" nx/docs/agents/05-debugging.md | head -20
+          python "$(find nx -name sdis.py | head -n1)" --help 2>&1 | head -40
+
+      - name: Symbolize crash addresses
+        continue-on-error: true
+        run: |
+          SDK=$(find logs -path "*extract/ExeFS/sdk" -type f | head -n1)
+          S=$(find nx -name sdis.py | head -n1)
+          for a in 0x14f778 0x14f75c 0x898b4; do
+            echo "=== sdk+$a ==="
+            python "$S" "$SDK" --sym $a 2>&1 | head -40 \
+              || python "$S" --sym "$SDK" $a 2>&1 | head -40
+          done
