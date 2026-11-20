@@ -30,20 +30,37 @@ jobs:
           github-token: ${{ github.token }}
           path: logs
 
-      - name: Find tools
+      - name: How sdis.py works
         run: |
-          find logs -type f -name sdk
-          find nx -name sdis.py
-          grep -n "sdis.py" nx/docs/agents/05-debugging.md | head -20
-          python "$(find nx -name sdis.py | head -n1)" --help 2>&1 | head -40
+          sed -n 1,45p nx/dm/tools/sdis.py
+          ls nx/dm/tools
+          grep -rIn -i -E "lz4|decompress" nx/dm/tools nx/scripts | head -15
 
-      - name: Symbolize crash addresses
+      - name: Unpack sdk and look up the crash
         continue-on-error: true
         run: |
-          SDK=$(find logs -path "*extract/ExeFS/sdk" -type f | head -n1)
-          S=$(find nx -name sdis.py | head -n1)
+          python - <<'PY'
+          import struct, lz4.block, glob
+          src = glob.glob("logs/**/extract/ExeFS/sdk", recursive=True)[0]
+          d = open(src, "rb").read()
+          flags = struct.unpack_from("<I", d, 0xC)[0]
+          segs = []
+          for i in range(3):
+              fo, mo, sz = struct.unpack_from("<III", d, 0x10 + 0x10 * i)
+              cs = struct.unpack_from("<I", d, 0x60 + 4 * i)[0]
+              raw = d[fo:fo + cs]
+              if flags & (1 << i):
+                  raw = lz4.block.decompress(raw, uncompressed_size=sz)
+              segs.append((mo, raw))
+          bss = struct.unpack_from("<I", d, 0x3C)[0]
+          end = segs[2][0] + len(segs[2][1]) + bss
+          img = bytearray(end)
+          for mo, raw in segs:
+              img[mo:mo + len(raw)] = raw
+          open("sdk.flat", "wb").write(img)
+          print("flat image bytes:", len(img))
+          PY
           for a in 0x14f778 0x14f75c 0x898b4; do
             echo "=== sdk+$a ==="
-            python "$S" "$SDK" --sym $a 2>&1 | head -40 \
-              || python "$S" --sym "$SDK" $a 2>&1 | head -40
+            python nx/dm/tools/sdis.py sdk.flat --sym $a 2>&1 | head -30
           done
