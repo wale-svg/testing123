@@ -1,0 +1,26 @@
+name: find-keys
+on: [push, workflow_dispatch]
+
+jobs:
+  find:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wale-svg/nxnative-wale
+          ref: no-bc
+          path: nx
+
+      - name: The two keys and how to set them
+        run: |
+          cd nx
+          echo "=== env switches ==="
+          grep -n -i -E "tex_flush|tex_dirty|TEX_FLUSH|TEX_DIRTY" docs/env_switches.tsv | head -20
+          echo "=== profile README ==="
+          grep -n -B2 -A12 -E "tex_flush_upload|tex_dirty_upload" dm/games/README.md | head -80
+          echo "=== reference entries ==="
+          grep -n -A14 -E "^### (Mapped-range flushes|CPU writes with no flush)" docs/reference/nvn-objects.md | head -70
+          echo "=== env.txt ==="
+          grep -rn "env.txt" docs README.md | head -12
+          echo "=== sample game.tsv ==="
+          sed -n 1,60p dm/games/010015100B514000/game.tsv
