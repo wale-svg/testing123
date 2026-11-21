@@ -1,0 +1,29 @@
+name: find-rtcode2
+on: [push, workflow_dispatch]
+
+jobs:
+  find:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wale-svg/nxnative-wale
+          ref: no-bc
+          path: nx
+
+      - name: Missing pieces
+        run: |
+          cd nx
+          F=dm/gfx/nvn/nvn_mtl.m
+          echo "=== blit / g_up_ct ==="
+          grep -n -E "blit\(void\)|g_blit =|g_up_ct|newArgumentTable" $F | head -30
+          echo "=== up_dec creation ==="
+          sed -n 4000,4078p $F
+          echo "=== rp_end around bcrt_flush ==="
+          sed -n 6190,6215p $F
+          echo "=== bca kernel signature ==="
+          grep -n -E "struct|kernel void bca" dm/gfx/tex/bc2astc_msl.h | head
+          echo "=== formats 0x2e / 0x2f ==="
+          grep -rn -E "0x2e|0x2f" dm/gfx/nvn/nvn_tex.c dm/gfx/nvn/include/nvn.h | head -8
+          echo "=== how the app is compiled ==="
+          grep -n -E "xcodebuild|xcodegen|-sdk|ARCHS" dm/ios/tools/build_ipa.sh | head -12
