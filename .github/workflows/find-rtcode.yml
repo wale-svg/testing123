@@ -1,0 +1,30 @@
+name: find-rtcode
+on: [push, workflow_dispatch]
+
+jobs:
+  find:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wale-svg/nxnative-wale
+          ref: no-bc
+          path: nx
+
+      - name: Code for the render-target patch
+        run: |
+          cd nx
+          F=dm/gfx/nvn/nvn_mtl.m
+          echo "=== call sites and helpers ==="
+          grep -n -E "rt_view_fmt|bcrt_attach|bcrt_flush|bcrt_is\(|g_nbcrt|bc_block_bytes\(|enc_b_copy_buffer_texture|enc_b_copy_texture_buffer|defer_obj_release\(|static void res_add" $F | head -60
+          echo "=== bc_block_bytes ==="
+          L=$(grep -n "bc_block_bytes(MTLPixelFormat" $F | head -n1 | cut -d: -f1); sed -n "${L},$((L+8))p" $F
+          echo "=== GPU transcode and decode ==="
+          sed -n 3436,3580p $F
+          echo "=== up_ast and its state ==="
+          grep -n -E "up_ast|g_nup_asts|bca_pso" $F | head -25
+          L=$(grep -n "^static.* up_ast(" $F | head -n1 | cut -d: -f1); [ -n "$L" ] && sed -n "${L},$((L+60))p" $F
+          echo "=== where render targets are attached ==="
+          for L in $(grep -n "bcrt_attach(\|rt_view_fmt(" $F | grep -v ":static" | cut -d: -f1 | head -5); do echo "--- around $L"; sed -n "$((L-25)),$((L+20))p" $F; done
+          echo "=== how nvn_mtl.m is built ==="
+          grep -rn "nvn_mtl" dm/host/Makefile dm/ios 2>/dev/null | head -15
