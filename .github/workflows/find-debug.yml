@@ -1,0 +1,22 @@
+name: find-debug
+on: [push, workflow_dispatch]
+
+jobs:
+  find:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wale-svg/nxnative-wale
+          ref: no-bc
+          path: nx
+
+      - name: Debug switches and motion notes
+        run: |
+          cd nx
+          echo "=== pass dump / hilite / texinfo ==="
+          grep -n -i -E "PASSDUMP|HILITE|NVN_TEXINFO" docs/agents/05-debugging.md docs/development.md docs/env_switches.tsv | head -40
+          echo "=== phone aiming ==="
+          grep -n -i -B1 -A6 "phone aiming" docs/reference/services.md | head -50
+          echo "=== Splatoon mentions ==="
+          grep -rn -i "splatoon" docs dm/games/README.md | head -20
