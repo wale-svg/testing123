@@ -1,0 +1,30 @@
+name: find-motion
+on: [push, workflow_dispatch]
+
+jobs:
+  find:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wale-svg/nxnative-wale
+          ref: no-bc
+          path: nx
+
+      - name: Phone motion mapping
+        run: |
+          cd nx
+          echo "=== DmGamepad.m 56-125 ==="
+          sed -n 56,125p dm/ios/Sources/DmGamepad.m
+          echo "=== dm_motion.h ==="
+          sed -n 1,120p dm/ios/Sources/dm_motion.h 2>/dev/null || find . -name dm_motion.h
+          echo "=== phone source in the host ==="
+          grep -n -i -E "dm_phone_motion_set|phone_motion|live_motion|angle|direction" dm/host/hle_hid.c | head -50
+
+      - name: Touch layout code
+        run: |
+          cd nx
+          G=dm/ios/Sources/DmGamepad.m
+          wc -l $G
+          grep -n -i -E "pad_layout|separated|drag|move|edit|customi[sz]e|rightStick|right stick|NSUserDefaults|layoutButton" $G | head -80
+          grep -rn -i "pad_layout" dm/ios/Sources/*.m dm/games/README.md docs/*.md | head -15
