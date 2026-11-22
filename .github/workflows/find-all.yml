@@ -1,0 +1,42 @@
+name: find-all
+on: [push, workflow_dispatch]
+
+jobs:
+  find:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wale-svg/nxnative-wale
+          ref: no-bc
+          path: nx
+
+      - name: Ground patch pieces
+        run: |
+          cd nx
+          F=dm/gfx/nvn/nvn_mtl.m
+          echo "=== replay-side compute example ==="
+          sed -n 14480,14530p $F
+          echo "=== rec_table / blit ==="
+          grep -n -E "rec_table\(|enc_b_begin\(|static.*enc_b_end" $F | head -8
+          sed -n 2011,2030p $F
+          echo "=== layered pass merging ==="
+          grep -n -E "att_layers|g_rt_merged|slice-merged|SLICE_MERGE" $F | head -30
+          L=$(grep -n "^static NSUInteger att_layers" $F | cut -d: -f1); sed -n "${L},$((L+14))p" $F
+          echo "=== view_t, format helpers ==="
+          grep -rn -E "\} view_t;|nvn_fmt_bpb\(|nvn_fmt_to_mtl\(" dm/gfx/nvn/*.h dm/gfx/nvn/*.c | head -8
+          echo "=== Mac host build ==="
+          sed -n 1,50p dm/host/Makefile
+          ls dm/host/gen 2>&1 | head
+
+      - name: Phone motion code
+        run: |
+          cd nx
+          G=dm/ios/Sources/DmGamepad.m
+          echo "=== phone motion in DmGamepad.m ==="
+          grep -n -i -E "dm_phone_motion_set|CMMotionManager|deviceMotion|MOTION_FLIP|landscape|interfaceOrientation|orientation|attitude" $G | head -50
+          L=$(grep -n "dm_phone_motion_set" $G | head -n1 | cut -d: -f1); [ -n "$L" ] && sed -n "$((L-70)),$((L+40))p" $G
+          echo "=== how the phone source reaches the six-axis state ==="
+          grep -n -i "phone" dm/host/hle_hid.c | head -40
+          echo "=== phone motion test ==="
+          ls dm/gfx/tests dm/host/tests 2>/dev/null | grep -i motion
