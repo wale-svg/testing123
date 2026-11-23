@@ -1,0 +1,24 @@
+name: check-gamepad
+on: [push, workflow_dispatch]
+
+jobs:
+  check:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wale-svg/nxnative-wale
+          ref: no-bc
+          path: nx
+
+      - name: Syntax check before and after the patch
+        run: |
+          cd nx
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          INC=$(find dm -name '*.h' -not -path '*third_party*' -not -path '*/gen/*' -exec dirname {} \; | sort -u | sed 's/^/-I/' | tr '\n' ' ')
+          mkdir -p ../stub && printf '#define DM_GAME_PAD_LAYOUT 0\n' > ../stub/game_profile.h
+          cp dm/ios/Sources/DmGamepad.m dm/ios/Sources/DmGamepadOrig.m
+          chk() { xcrun clang -fsyntax-only -fobjc-arc -x objective-c -arch arm64 -isysroot "$SDK" -miphoneos-version-min=17.0 -I ../stub $INC "$1" 2>&1 | grep -E "error" | head -30; }
+          echo "=== before the patch ==="; chk dm/ios/Sources/DmGamepadOrig.m
+          python3 patches/gamepad.py dm/ios/Sources/DmGamepad.m
+          echo "=== after the patch ==="; chk dm/ios/Sources/DmGamepad.m
