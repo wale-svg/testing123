@@ -11,7 +11,7 @@ jobs:
           ref: no-bc
           path: nx
 
-      - name: Syntax check before and after the patch
+      - name: Syntax check before and after the patches
         run: |
           cd nx
           SDK=$(xcrun --sdk iphoneos --show-sdk-path)
@@ -19,6 +19,7 @@ jobs:
           mkdir -p ../stub && printf '#define DM_GAME_PAD_LAYOUT 0\n' > ../stub/game_profile.h
           cp dm/ios/Sources/DmGamepad.m dm/ios/Sources/DmGamepadOrig.m
           chk() { xcrun clang -fsyntax-only -fobjc-arc -x objective-c -arch arm64 -isysroot "$SDK" -miphoneos-version-min=17.0 -I ../stub $INC "$1" 2>&1 | grep -E "error" | head -30; }
-          echo "=== before the patch ==="; chk dm/ios/Sources/DmGamepadOrig.m
+          echo "=== before the patches ==="; chk dm/ios/Sources/DmGamepadOrig.m
           python3 patches/gamepad.py dm/ios/Sources/DmGamepad.m
-          echo "=== after the patch ==="; chk dm/ios/Sources/DmGamepad.m
+          python3 patches/motion.py dm/ios/Sources/DmGamepad.m
+          echo "=== after the patches ==="; chk dm/ios/Sources/DmGamepad.m
