@@ -22,4 +22,5 @@ jobs:
           echo "=== before the patches ==="; chk dm/ios/Sources/DmGamepadOrig.m
           python3 patches/gamepad.py dm/ios/Sources/DmGamepad.m
           python3 patches/motion.py dm/ios/Sources/DmGamepad.m
+          python3 patches/motion3.py dm/ios/Sources/DmGamepad
           echo "=== after the patches ==="; chk dm/ios/Sources/DmGamepad.m
