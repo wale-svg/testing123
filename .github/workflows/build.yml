@@ -76,6 +76,7 @@ jobs:
           python patches/gamepad.py dm/ios/Sources/DmGamepad.m
           python patches/motion.py dm/ios/Sources/DmGamepad.m
           python patches/motion2.py dm/ios/Sources/DmGamepad.m
+          python patches/motion3.py dm/ios/Sources/DmGamepad.m
 
       - name: Set up .NET SDK
         uses: actions/setup-dotnet@v4
