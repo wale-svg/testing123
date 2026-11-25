@@ -11,14 +11,12 @@ jobs:
           ref: no-bc
           path: nx
 
-      - name: Motion mapping
+      - name: Six-axis state code
         run: |
           cd nx
-          echo "=== dm_motion.h ==="
-          cat dm/host/dm_motion.h
-          echo "=== host motion_set_to / motion_fill ==="
-          L=$(grep -n "^static void motion_set_to(live_motion" dm/host/hle_hid.c | tail -n1 | cut -d: -f1)
-          sed -n "${L},$((L+40))p" dm/host/hle_hid.c
-          L=$(grep -n "motion_fill(motion_state" dm/host/*.c dm/host/*.h | head -n1)
-          echo "$L"
-          grep -rn "motion_fill" dm/host/*.h | head -5
+          echo "=== motion_fusion.h ==="
+          cat dm/host/motion_fusion.h
+          echo "=== six-axis state in hle_hid.c ==="
+          grep -n -E "GetSixAxisSensorState|six_source|six_fill|SixAxisSensorState|delta_time|deltaTime|six_delay|SIX_DELAY" dm/host/hle_hid.c | head -60
+          echo "=== six-axis notes in the docs ==="
+          grep -n -i -E "six-axis|six_axis|SixAxis" docs/reference/services.md | cut -c1-260 | head -40
